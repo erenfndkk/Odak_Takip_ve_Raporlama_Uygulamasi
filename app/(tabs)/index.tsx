@@ -1,60 +1,138 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import React, { useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
+  // Sadece süre ve aktiflik durumu kaldı
+  const [seconds, setSeconds] = useState(25 * 60); // Varsayılan 25 dakika
+  const [isActive, setIsActive] = useState(false);
+
+  // SAYAÇ MANTIĞI
+  useEffect(() => {
+    let interval: any = null;
+
+    if (isActive && seconds > 0) {
+      interval = setInterval(() => {
+        setSeconds((prev) => prev - 1);
+      }, 1000);
+    } else if (seconds === 0) {
+      // Süre Bittiğinde
+      setIsActive(false);
+      clearInterval(interval);
+      Alert.alert("Süre Bitti", "Odaklanma seansı tamamlandı!");
+    }
+
+    return () => clearInterval(interval);
+  }, [isActive, seconds]);
+
+  // Yardımcı Fonksiyon: Saniyeyi DK:SN formatına çevirir
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const second = time % 60;
+    return `${minutes < 10 ? '0' : ''}${minutes}:${second < 10 ? '0' : ''}${second}`;
+  };
+
+  // Buton Fonksiyonları
+  const handleReset = () => {
+    setIsActive(false);
+    setSeconds(25 * 60); // Sıfırlayınca tekrar 25 dk olsun
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-    
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>Odaklanma Modu</Text>
+      
+      {/* SAYAÇ GÖSTERGESİ */}
+      <View style={styles.timerContainer}>
+        <Text style={styles.timerText}>{formatTime(seconds)}</Text>
+      </View>
+
+      {/* KONTROL BUTONLARI */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.button, isActive ? styles.stopButton : styles.startButton]} 
+          onPress={() => setIsActive(!isActive)}
+        >
+          <Text style={styles.buttonText}>{isActive ? "Duraklat" : "Başlat"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleReset}>
+          <Text style={styles.buttonText}>Sıfırla</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* HIZLI SÜRE AYARI (+/- 1 DK) */}
+      <View style={styles.quickAddContainer}>
+        <TouchableOpacity onPress={() => setSeconds(seconds + 60)} style={styles.smallButton}>
+            <Text style={styles.smallButtonText}>+1 Dk</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={() => setSeconds(seconds > 60 ? seconds - 60 : 0)} style={styles.smallButton}>
+            <Text style={styles.smallButtonText}>-1 Dk</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#f5f5f5', 
+    padding: 20 
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  headerTitle: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    marginBottom: 50, 
+    color: '#333' 
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  timerContainer: { 
+    alignItems: 'center', 
+    marginBottom: 50 
   },
+  timerText: { 
+    fontSize: 90, 
+    fontWeight: 'bold', 
+    color: '#2c3e50',
+    fontVariant: ['tabular-nums'] // Rakamlar değişirken titremesin diye
+  },
+  buttonContainer: { 
+    flexDirection: 'row', 
+    gap: 20,
+    marginBottom: 30
+  },
+  button: { 
+    paddingVertical: 15, 
+    paddingHorizontal: 35, 
+    borderRadius: 30, 
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  startButton: { backgroundColor: '#27ae60' },
+  stopButton: { backgroundColor: '#f39c12' },
+  resetButton: { backgroundColor: '#e74c3c' },
+  buttonText: { 
+    color: '#fff', 
+    fontSize: 18, 
+    fontWeight: 'bold' 
+  },
+  quickAddContainer: { 
+    flexDirection: 'row', 
+    gap: 15 
+  },
+  smallButton: { 
+    paddingVertical: 10,
+    paddingHorizontal: 20, 
+    backgroundColor: '#e0e0e0', 
+    borderRadius: 10 
+  },
+  smallButtonText: {
+    color: '#333',
+    fontWeight: '600'
+  }
 });
