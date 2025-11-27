@@ -1,10 +1,11 @@
+import { Picker } from '@react-native-picker/picker'; // Kütüphaneyi çağırdık
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
-  // Sadece süre ve aktiflik durumu kaldı
-  const [seconds, setSeconds] = useState(25 * 60); // Varsayılan 25 dakika
+  const [seconds, setSeconds] = useState(25 * 60); 
   const [isActive, setIsActive] = useState(false);
+  const [category, setCategory] = useState("Ders"); // Kategori için state ekledik
 
   // SAYAÇ MANTIĞI
   useEffect(() => {
@@ -15,38 +16,54 @@ export default function HomeScreen() {
         setSeconds((prev) => prev - 1);
       }, 1000);
     } else if (seconds === 0) {
-      // Süre Bittiğinde
       setIsActive(false);
       clearInterval(interval);
-      Alert.alert("Süre Bitti", "Odaklanma seansı tamamlandı!");
+      // Mesajda seçilen kategoriyi de gösteriyoruz
+      Alert.alert("Süre Bitti", `${category} seansı başarıyla tamamlandı!`);
     }
 
     return () => clearInterval(interval);
   }, [isActive, seconds]);
 
-  // Yardımcı Fonksiyon: Saniyeyi DK:SN formatına çevirir
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const second = time % 60;
     return `${minutes < 10 ? '0' : ''}${minutes}:${second < 10 ? '0' : ''}${second}`;
   };
 
-  // Buton Fonksiyonları
   const handleReset = () => {
     setIsActive(false);
-    setSeconds(25 * 60); // Sıfırlayınca tekrar 25 dk olsun
+    setSeconds(25 * 60);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Odaklanma Modu</Text>
       
-      {/* SAYAÇ GÖSTERGESİ */}
+      {/* KATEGORİ SEÇİM ALANI (YENİ EKLENDİ) */}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.label}>Kategori Seçiniz:</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={category}
+            onValueChange={(itemValue) => setCategory(itemValue)}
+            style={styles.picker}
+          >
+            <Picker.Item label="📚 Ders Çalışma" value="Ders" />
+            <Picker.Item label="💻 Kodlama" value="Kodlama" />
+            <Picker.Item label="📖 Kitap Okuma" value="Kitap" />
+            <Picker.Item label="🚀 Proje" value="Proje" />
+            <Picker.Item label="🧘 Meditasyon" value="Meditasyon" />
+          </Picker>
+        </View>
+      </View>
+
+      {/* SAYAÇ */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerText}>{formatTime(seconds)}</Text>
       </View>
 
-      {/* KONTROL BUTONLARI */}
+      {/* BUTONLAR */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={[styles.button, isActive ? styles.stopButton : styles.startButton]} 
@@ -60,7 +77,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* HIZLI SÜRE AYARI (+/- 1 DK) */}
+      {/* SÜRE AYARLAMA */}
       <View style={styles.quickAddContainer}>
         <TouchableOpacity onPress={() => setSeconds(seconds + 60)} style={styles.smallButton}>
             <Text style={styles.smallButtonText}>+1 Dk</Text>
@@ -85,18 +102,45 @@ const styles = StyleSheet.create({
   headerTitle: { 
     fontSize: 28, 
     fontWeight: 'bold', 
-    marginBottom: 50, 
+    marginBottom: 20, 
     color: '#333' 
   },
+  // --- Kategori Stilleri ---
+  pickerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  label: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    marginLeft: '10%'
+  },
+  pickerWrapper: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    overflow: 'hidden', // Köşelerin yuvarlak kalması için
+  },
+  picker: {
+    width: '100%',
+    height: 55,
+    backgroundColor: 'transparent',
+  },
+  // -------------------------
   timerContainer: { 
     alignItems: 'center', 
-    marginBottom: 50 
+    marginBottom: 40 
   },
   timerText: { 
     fontSize: 90, 
     fontWeight: 'bold', 
     color: '#2c3e50',
-    fontVariant: ['tabular-nums'] // Rakamlar değişirken titremesin diye
+    fontVariant: ['tabular-nums']
   },
   buttonContainer: { 
     flexDirection: 'row', 
