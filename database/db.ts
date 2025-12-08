@@ -1,49 +1,59 @@
 import * as SQLite from 'expo-sqlite';
 
-// Veritabanı dosyasını aç (yoksa oluşturur)
 const db = SQLite.openDatabaseSync('odakTakip.db');
 
-// Tabloları Başlatma Fonksiyonu
 export const initDatabase = () => {
   try {
     db.execSync(`
       CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category TEXT NOT NULL,
-        duration INTEGER NOT NULL, -- Saniye cinsinden
-        date TEXT NOT NULL,        -- ISO formatında tarih (YYYY-MM-DD)
-        timestamp INTEGER NOT NULL -- Sıralama için epoch time
+        duration INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        timestamp INTEGER NOT NULL
       );
     `);
-    console.log("Veritabanı ve tablo hazır!");
   } catch (error) {
-    console.error("Veritabanı hatası:", error);
+    console.error("DB Başlatma hatası:", error);
   }
 };
 
-// Yeni Seans Ekleme Fonksiyonu
 export const addSession = (category: string, duration: number) => {
   try {
-    const date = new Date().toISOString().split('T')[0]; // Sadece tarihi al (2025-12-06)
-    const timestamp = Date.now(); // Şimdiki zaman
-    
+    const date = new Date().toISOString().split('T')[0];
+    const timestamp = Date.now();
     db.runSync(
       'INSERT INTO sessions (category, duration, date, timestamp) VALUES (?, ?, ?, ?)',
       [category, duration, date, timestamp]
     );
-    console.log("Kayıt eklendi:", category, duration);
   } catch (error) {
-    console.error("Kayıt ekleme hatası:", error);
+    console.error("Ekleme hatası:", error);
   }
 };
 
-// Raporlar için veri çekme (Şimdilik tüm veriyi çekelim)
-export const getSessions = () => {
+// --- YENİ EKLENEN FONKSİYONLAR ---
+
+// 1. Son seansları listelemek için (Geçmiş)
+export const getRecentSessions = () => {
   try {
-    const allRows = db.getAllSync('SELECT * FROM sessions ORDER BY timestamp DESC');
-    return allRows;
+    return db.getAllSync('SELECT * FROM sessions ORDER BY timestamp DESC LIMIT 20');
   } catch (error) {
-    console.error("Veri çekme hatası:", error);
+    console.error("Liste çekme hatası:", error);
+    return [];
+  }
+};
+
+// 2. Grafikler için kategorilere göre toplam süreleri getirir
+// SQL'in "GROUP BY" gücünü kullanıyoruz.
+export const getCategoryStats = () => {
+  try {
+    return db.getAllSync(`
+      SELECT category, SUM(duration) as totalDuration 
+      FROM sessions 
+      GROUP BY category
+    `);
+  } catch (error) {
+    console.error("İstatistik hatası:", error);
     return [];
   }
 };
