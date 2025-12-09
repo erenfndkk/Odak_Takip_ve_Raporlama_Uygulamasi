@@ -1,15 +1,42 @@
 import { Picker } from '@react-native-picker/picker';
-import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { addSession } from '../../database/db'; // Veritabanı fonksiyonumuz
+import React, { useEffect, useRef, useState } from 'react'; // useRef eklendi
+import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // AppState eklendi
+import { addSession } from '../../database/db';
 
 export default function HomeScreen() {
-  const [seconds, setSeconds] = useState(25 * 60); // Geriye sayan değişken
-  const [totalDuration, setTotalDuration] = useState(25 * 60); // Başlangıç süresini aklında tutan değişken
+  const [seconds, setSeconds] = useState(25 * 60); 
+  const [totalDuration, setTotalDuration] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [category, setCategory] = useState("Ders");
+  
+  // YENİ: Dikkat dağınıklığı sayacı
+  const [distractionCount, setDistractionCount] = useState(0);
+  // YENİ: Uygulamanın durumunu takip etmek için referans
+  const appState = useRef(AppState.currentState);
 
-  // SAYAÇ MANTIĞI
+  // 1. DİKKAT DAĞINIKLIĞI TAKİBİ (APPSTATE)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      
+      // Eğer uygulama aktifken -> arka plana (background) atılırsa:
+      if (appState.current.match(/active/) && nextAppState === 'background') {
+        if (isActive) {
+          // Sayacı durdur
+          setIsActive(false);
+          // Sayacı 1 artır
+          setDistractionCount((prev) => prev + 1);
+        }
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive]); // isActive değiştiğinde listener güncellensin
+
+  // 2. SAYAÇ MANTIĞI
   useEffect(() => {
     let interval: any = null;
 
@@ -17,15 +44,18 @@ export default function HomeScreen() {
       interval = setInterval(() => {
         setSeconds((prev) => prev - 1);
       }, 1000);
-    } else if (seconds === 0) {
+    } else if (seconds === 0 && isActive) {
       // Süre Bitti
       setIsActive(false);
       clearInterval(interval);
       
-      // DÜZELTME BURADA: Artık sabit 25*60 değil, aklımızda tuttuğumuz totalDuration'ı kaydediyoruz.
       addSession(category, totalDuration); 
       
-      Alert.alert("Tebrikler!", `${category} seansı tamamlandı ve kaydedildi!`);
+      // Mesajda dikkat dağınıklığını da gösteriyoruz
+      Alert.alert(
+        "Tebrikler!", 
+        `${category} seansı tamamlandı!\nToplam Odak: ${totalDuration / 60} dk\nDikkat Dağılması: ${distractionCount} kez`
+      );
     }
 
     return () => clearInterval(interval);
@@ -40,17 +70,16 @@ export default function HomeScreen() {
   // SIFIRLAMA FONKSİYONU
   const handleReset = () => {
     setIsActive(false);
-    setSeconds(25 * 60);       // Sayacı 25'e döndür
-    setTotalDuration(25 * 60); // Hafızayı da 25'e döndür
+    setSeconds(25 * 60);     
+    setTotalDuration(25 * 60);
+    setDistractionCount(0); // Sayacı da sıfırla
   };
 
-  // SÜRE EKLEME/ÇIKARMA FONKSİYONU
   const changeTime = (amount: number) => {
-    // Hem sayacı hem de hafızadaki toplam süreyi güncelliyoruz
     const newTime = seconds + amount;
     if (newTime > 0) {
       setSeconds(newTime);
-      setTotalDuration(newTime); // <--- Kritik nokta burası
+      setTotalDuration(newTime);
     }
   };
 
@@ -79,6 +108,10 @@ export default function HomeScreen() {
       {/* SAYAÇ */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerText}>{formatTime(seconds)}</Text>
+        {/* YENİ: Dikkat Dağınıklığı Göstergesi */}
+        {distractionCount > 0 && (
+            <Text style={styles.distractionText}>⚠️ {distractionCount} Kez Dikkat Dağıldı!</Text>
+        )}
       </View>
 
       {/* BUTONLAR */}
@@ -97,7 +130,6 @@ export default function HomeScreen() {
 
       {/* HIZLI SÜRE AYARI */}
       <View style={styles.quickAddContainer}>
-        {/* changeTime fonksiyonunu kullanarak her iki değeri de güncelliyoruz */}
         <TouchableOpacity onPress={() => changeTime(60)} style={styles.smallButton}>
             <Text style={styles.smallButtonText}>+1 Dk</Text>
         </TouchableOpacity>
@@ -111,7 +143,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... Stillerin aynı kalabilir, burayı değiştirmene gerek yok ...
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 20 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, color: '#333' },
   pickerContainer: { width: '100%', alignItems: 'center', marginBottom: 30 },
@@ -120,6 +151,10 @@ const styles = StyleSheet.create({
   picker: { width: '100%', height: 55 },
   timerContainer: { alignItems: 'center', marginBottom: 40 },
   timerText: { fontSize: 90, fontWeight: 'bold', color: '#2c3e50', fontVariant: ['tabular-nums'] },
+  
+  // YENİ STİL: Dikkat yazısı için
+  distractionText: { fontSize: 16, color: '#e74c3c', marginTop: 10, fontWeight: 'bold' },
+
   buttonContainer: { flexDirection: 'row', gap: 20, marginBottom: 30 },
   button: { paddingVertical: 15, paddingHorizontal: 35, borderRadius: 30, elevation: 3 },
   startButton: { backgroundColor: '#27ae60' },
