@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const db = SQLite.openDatabaseSync('odakTakip.db');
+const db = SQLite.openDatabaseSync('odak_Takip.db');
 
 export const initDatabase = () => {
   try {
@@ -9,6 +9,7 @@ export const initDatabase = () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category TEXT NOT NULL,
         duration INTEGER NOT NULL,
+        distractionCount INTEGER DEFAULT 0,
         date TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
@@ -18,33 +19,60 @@ export const initDatabase = () => {
   }
 };
 
-export const addSession = (category: string, duration: number) => {
+export const addSession = (category: string, duration: number, distractionCount: number) => {
   try {
     const date = new Date().toISOString().split('T')[0];
     const timestamp = Date.now();
     db.runSync(
-      'INSERT INTO sessions (category, duration, date, timestamp) VALUES (?, ?, ?, ?)',
-      [category, duration, date, timestamp]
+      'INSERT INTO sessions (category, duration, distractionCount, date, timestamp) VALUES (?, ?, ?, ?, ?)',
+      [category, duration, distractionCount, date, timestamp]
     );
   } catch (error) {
     console.error("Ekleme hatası:", error);
   }
 };
 
-// --- YENİ EKLENEN FONKSİYONLAR ---
+// --- YENİ RAPORLAMA FONKSİYONLARI ---
 
-// 1. Son seansları listelemek için (Geçmiş)
-export const getRecentSessions = () => {
+// 1. Özet Kartlar için (Bugün, Toplam, Dikkat)
+export const getSummaryStats = () => {
   try {
-    return db.getAllSync('SELECT * FROM sessions ORDER BY timestamp DESC LIMIT 20');
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Tek bir sorguda hepsini çekiyoruz
+    const result = db.getAllSync(`
+      SELECT 
+        SUM(duration) as totalAllTime,
+        SUM(distractionCount) as totalDistractions,
+        SUM(CASE WHEN date = ? THEN duration ELSE 0 END) as totalToday
+      FROM sessions
+    `, [today]);
+
+    return result[0] || { totalAllTime: 0, totalDistractions: 0, totalToday: 0 };
   } catch (error) {
-    console.error("Liste çekme hatası:", error);
+    console.error("Özet istatistik hatası:", error);
+    return { totalAllTime: 0, totalDistractions: 0, totalToday: 0 };
+  }
+};
+
+// 2. Bar Chart için Son 7 Günlük Veri
+export const getLast7DaysStats = () => {
+  try {
+    // Son 7 güne ait toplam süreleri tarihe göre grupla
+    return db.getAllSync(`
+      SELECT date, SUM(duration) as totalDuration
+      FROM sessions
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 7
+    `);
+  } catch (error) {
+    console.error("7 Günlük veri hatası:", error);
     return [];
   }
 };
 
-// 2. Grafikler için kategorilere göre toplam süreleri getirir
-// SQL'in "GROUP BY" gücünü kullanıyoruz.
+// 3. Pie Chart için Kategorik Dağılım
 export const getCategoryStats = () => {
   try {
     return db.getAllSync(`
@@ -53,7 +81,8 @@ export const getCategoryStats = () => {
       GROUP BY category
     `);
   } catch (error) {
-    console.error("İstatistik hatası:", error);
+    console.error("Kategori istatistik hatası:", error);
     return [];
   }
 };
+

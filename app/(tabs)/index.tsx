@@ -1,40 +1,35 @@
 import { Picker } from '@react-native-picker/picker';
-import React, { useEffect, useRef, useState } from 'react'; // useRef eklendi
-import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // AppState eklendi
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { addSession } from '../../database/db';
 
 export default function HomeScreen() {
-  const [seconds, setSeconds] = useState(25 * 60); 
-  const [totalDuration, setTotalDuration] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [category, setCategory] = useState("Ders");
+  const DEFAULT_TIME = 25 * 60; // Varsayılan süre (25 dk)
+
+  const [seconds, setSeconds] = useState(DEFAULT_TIME); 
+  const [totalDuration, setTotalDuration] = useState(DEFAULT_TIME);
   
-  // YENİ: Dikkat dağınıklığı sayacı
+  const [isActive, setIsActive] = useState(false);
+  const [isSessionStarted, setIsSessionStarted] = useState(false);
+
+  const [category, setCategory] = useState("Ders");
   const [distractionCount, setDistractionCount] = useState(0);
-  // YENİ: Uygulamanın durumunu takip etmek için referans
+  
   const appState = useRef(AppState.currentState);
 
-  // 1. DİKKAT DAĞINIKLIĞI TAKİBİ (APPSTATE)
+  // 1. DİKKAT DAĞINIKLIĞI TAKİBİ
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      
-      // Eğer uygulama aktifken -> arka plana (background) atılırsa:
       if (appState.current.match(/active/) && nextAppState === 'background') {
         if (isActive) {
-          // Sayacı durdur
-          setIsActive(false);
-          // Sayacı 1 artır
+          setIsActive(false); 
           setDistractionCount((prev) => prev + 1);
         }
       }
-
       appState.current = nextAppState;
     });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [isActive]); // isActive değiştiğinde listener güncellensin
+    return () => { subscription.remove(); };
+  }, [isActive]);
 
   // 2. SAYAÇ MANTIĞI
   useEffect(() => {
@@ -44,22 +39,33 @@ export default function HomeScreen() {
       interval = setInterval(() => {
         setSeconds((prev) => prev - 1);
       }, 1000);
-    } else if (seconds === 0 && isActive) {
-      // Süre Bitti
+    } else if (seconds === 0 && isSessionStarted) { 
+      // Süre Bittiğinde
       setIsActive(false);
+      setIsSessionStarted(false); 
       clearInterval(interval);
       
-      addSession(category, totalDuration); 
+      // Kayıt
+      addSession(category, totalDuration, distractionCount); 
       
-      // Mesajda dikkat dağınıklığını da gösteriyoruz
       Alert.alert(
         "Tebrikler!", 
-        `${category} seansı tamamlandı!\nToplam Odak: ${totalDuration / 60} dk\nDikkat Dağılması: ${distractionCount} kez`
+        `${category} seansı tamamlandı!\nToplam Odak: ${totalDuration / 60} dk\nDikkat Dağılması: ${distractionCount} kez`,
+        [
+            { 
+                text: "Tamam", 
+                onPress: () => {
+                    // SEANS BİTİNCE YAPILACAKLAR:
+                    setDistractionCount(0);       // 1. Dikkat sayacını sıfırla
+                    setSeconds(DEFAULT_TIME);     // 2. Sayacı tekrar 25 dk yap
+                    setTotalDuration(DEFAULT_TIME); // 3. Hafızayı 25 dk yap 
+                } 
+            }
+        ]
       );
     }
-
     return () => clearInterval(interval);
-  }, [isActive, seconds]);
+  }, [isActive, seconds, isSessionStarted]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -67,15 +73,26 @@ export default function HomeScreen() {
     return `${minutes < 10 ? '0' : ''}${minutes}:${second < 10 ? '0' : ''}${second}`;
   };
 
-  // SIFIRLAMA FONKSİYONU
+  const handleStartStop = () => {
+    if (isActive) {
+        setIsActive(false);
+    } else {
+        setIsActive(true);
+        setIsSessionStarted(true); 
+    }
+  };
+
   const handleReset = () => {
     setIsActive(false);
-    setSeconds(25 * 60);     
-    setTotalDuration(25 * 60);
-    setDistractionCount(0); // Sayacı da sıfırla
+    setIsSessionStarted(false); 
+    setSeconds(DEFAULT_TIME);     
+    setTotalDuration(DEFAULT_TIME);
+    setDistractionCount(0);
   };
 
   const changeTime = (amount: number) => {
+    if (isSessionStarted) return; 
+
     const newTime = seconds + amount;
     if (newTime > 0) {
       setSeconds(newTime);
@@ -90,11 +107,14 @@ export default function HomeScreen() {
       {/* KATEGORİ SEÇİMİ */}
       <View style={styles.pickerContainer}>
         <Text style={styles.label}>Kategori Seçiniz:</Text>
-        <View style={styles.pickerWrapper}>
+        
+        <View style={[styles.pickerWrapper, isSessionStarted && styles.disabledPicker]}>
           <Picker
             selectedValue={category}
+            enabled={!isSessionStarted} 
             onValueChange={(itemValue) => setCategory(itemValue)}
             style={styles.picker}
+            dropdownIconColor={isSessionStarted ? "#999" : "#000"}
           >
             <Picker.Item label="📚 Ders Çalışma" value="Ders" />
             <Picker.Item label="💻 Kodlama" value="Kodlama" />
@@ -103,12 +123,12 @@ export default function HomeScreen() {
             <Picker.Item label="🧘 Meditasyon" value="Meditasyon" />
           </Picker>
         </View>
+        {isSessionStarted && <Text style={styles.infoText}>⚠️ Seans bitmeden kategori değişemez</Text>}
       </View>
 
       {/* SAYAÇ */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerText}>{formatTime(seconds)}</Text>
-        {/* YENİ: Dikkat Dağınıklığı Göstergesi */}
         {distractionCount > 0 && (
             <Text style={styles.distractionText}>⚠️ {distractionCount} Kez Dikkat Dağıldı!</Text>
         )}
@@ -118,9 +138,9 @@ export default function HomeScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={[styles.button, isActive ? styles.stopButton : styles.startButton]} 
-          onPress={() => setIsActive(!isActive)}
+          onPress={handleStartStop}
         >
-          <Text style={styles.buttonText}>{isActive ? "Duraklat" : "Başlat"}</Text>
+          <Text style={styles.buttonText}>{isActive ? "Duraklat" : (isSessionStarted ? "Devam Et" : "Başlat")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleReset}>
@@ -129,12 +149,20 @@ export default function HomeScreen() {
       </View>
 
       {/* HIZLI SÜRE AYARI */}
-      <View style={styles.quickAddContainer}>
-        <TouchableOpacity onPress={() => changeTime(60)} style={styles.smallButton}>
+      <View style={[styles.quickAddContainer, { opacity: isSessionStarted ? 0.3 : 1 }]}>
+        <TouchableOpacity 
+          onPress={() => changeTime(60)} 
+          disabled={isSessionStarted}
+          style={styles.smallButton}
+        >
             <Text style={styles.smallButtonText}>+1 Dk</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity onPress={() => changeTime(-60)} style={styles.smallButton}>
+        <TouchableOpacity 
+          onPress={() => changeTime(-60)} 
+          disabled={isSessionStarted}
+          style={styles.smallButton}
+        >
             <Text style={styles.smallButtonText}>-1 Dk</Text>
         </TouchableOpacity>
       </View>
@@ -145,14 +173,29 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 20 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  
   pickerContainer: { width: '100%', alignItems: 'center', marginBottom: 30 },
   label: { fontSize: 16, color: '#666', marginBottom: 8, alignSelf: 'flex-start', marginLeft: '10%' },
-  pickerWrapper: { width: '80%', backgroundColor: '#fff', borderRadius: 15, borderWidth: 1, borderColor: '#ddd', overflow: 'hidden' },
+  
+  pickerWrapper: { 
+    width: '80%', 
+    backgroundColor: '#fff', 
+    borderRadius: 15, 
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    overflow: 'hidden' 
+  },
+  disabledPicker: {
+    backgroundColor: '#e0e0e0',
+    borderColor: '#ccc',
+    opacity: 0.6
+  },
+  
   picker: { width: '100%', height: 55 },
+  infoText: { fontSize: 12, color: '#999', marginTop: 5 },
+
   timerContainer: { alignItems: 'center', marginBottom: 40 },
   timerText: { fontSize: 90, fontWeight: 'bold', color: '#2c3e50', fontVariant: ['tabular-nums'] },
-  
-  // YENİ STİL: Dikkat yazısı için
   distractionText: { fontSize: 16, color: '#e74c3c', marginTop: 10, fontWeight: 'bold' },
 
   buttonContainer: { flexDirection: 'row', gap: 20, marginBottom: 30 },
@@ -161,6 +204,7 @@ const styles = StyleSheet.create({
   stopButton: { backgroundColor: '#f39c12' },
   resetButton: { backgroundColor: '#e74c3c' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  
   quickAddContainer: { flexDirection: 'row', gap: 15 },
   smallButton: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#e0e0e0', borderRadius: 10 },
   smallButtonText: { color: '#333', fontWeight: '600' }

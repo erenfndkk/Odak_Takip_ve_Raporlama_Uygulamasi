@@ -1,131 +1,193 @@
-import { useFocusEffect } from 'expo-router'; // Tab değişimini algılamak için
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
-import { getCategoryStats, getRecentSessions } from '../../database/db';
+import { BarChart, PieChart } from 'react-native-chart-kit'; // BarChart eklendi
+import { getCategoryStats, getLast7DaysStats, getSummaryStats } from '../../database/db';
 
 const screenWidth = Dimensions.get('window').width;
 
-// Grafik için renk paleti
 const chartColors: { [key: string]: string } = {
-  "Ders": "#FF6384",
-  "Kodlama": "#36A2EB",
-  "Kitap": "#FFCE56",
-  "Proje": "#4BC0C0",
-  "Meditasyon": "#9966FF",
-  "Varsayilan": "#C9CBCF"
+  "Ders": "#FF6384", "Kodlama": "#36A2EB", "Kitap": "#FFCE56", 
+  "Proje": "#4BC0C0", "Meditasyon": "#9966FF", "Varsayilan": "#C9CBCF"
 };
 
 export default function ReportScreen() {
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
-  const [totalFocusTime, setTotalFocusTime] = useState(0);
+  // Özet Veriler
+  const [summary, setSummary] = useState({ totalToday: 0, totalAllTime: 0, totalDistractions: 0 });
+  
+  // Grafik Verileri
+  const [pieData, setPieData] = useState<any[]>([]);
+  const [barData, setBarData] = useState<any>({ labels: [], datasets: [{ data: [] }] });
 
-  // Sayfa her odaklandığında (Tab'a tıklandığında) çalışır
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      loadAllData();
     }, [])
   );
 
-  const loadData = () => {
-    // 1. Grafik Verilerini Çek
-    const stats: any[] = getCategoryStats();
-    let totalSec = 0;
+  const loadAllData = () => {
+    // 1. ÖZET KARTLAR VERİSİ
+    const stats: any = getSummaryStats();
+    setSummary(stats);
 
-    // Chart Kit'in istediği formata çevir
-    const formattedData = stats.map((item) => {
-      totalSec += item.totalDuration;
+    // 2. PASTA GRAFİK (PIE CHART) VERİSİ
+    const catStats: any[] = getCategoryStats();
+    const grandTotal = catStats.reduce((sum, item) => sum + item.totalDuration, 0);
+    
+    const formattedPieData = catStats.map((item) => {
+      const percentage = grandTotal > 0 ? Math.round((item.totalDuration / grandTotal) * 100) : 0;
       return {
-        name: item.category,
-        population: Math.floor(item.totalDuration / 60), // Dakikaya çevir
+        name: `${item.category} (%${percentage})`,
+        population: Math.floor(item.totalDuration / 60), // Dakika
         color: chartColors[item.category] || chartColors["Varsayilan"],
         legendFontColor: "#7F7F7F",
         legendFontSize: 12
       };
     });
+    setPieData(formattedPieData);
 
-    setChartData(formattedData);
-    setTotalFocusTime(totalSec);
-
-    // 2. Geçmiş Listesini Çek
-    const recentHistory = getRecentSessions();
-    setHistory(recentHistory);
+    // 3. ÇUBUK GRAFİK (BAR CHART) VERİSİ - Son 7 Gün
+    const rawHistory: any[] = getLast7DaysStats();
+    prepareBarChartData(rawHistory);
   };
 
-  const formatTotalTime = (seconds: number) => {
+  // Bar Chart için veriyi hazırlama (Boş günleri 0 ile doldurma mantığı)
+  const prepareBarChartData = (rawHistory: any[]) => {
+    const labels = [];
+    const data = [];
+    
+    // Bugünden geriye 7 gün say
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0]; // "2023-12-10"
+      
+      // Grafik altında görünecek tarih formatı (Örn: 10/12)
+      const label = `${d.getDate()}/${d.getMonth() + 1}`;
+      labels.push(label);
+
+      // Bu tarihte veri var mı veritabanında?
+      const found = rawHistory.find((item: any) => item.date === dateStr);
+      // Varsa dakikaya çevir, yoksa 0 yaz
+      data.push(found ? Math.floor(found.totalDuration / 60) : 0);
+    }
+
+    setBarData({
+      labels: labels,
+      datasets: [{ data: data }]
+    });
+  };
+
+  // Saniyeyi saat:dk formatına çevirir
+  const formatTime = (seconds: number) => {
+    if (!seconds) return "0dk";
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    return `${hrs}sa ${mins}dk`;
+    return hrs > 0 ? `${hrs}sa ${mins}dk` : `${mins}dk`;
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>Haftalık Rapor</Text>
+      <Text style={styles.headerTitle}>İstatistikler</Text>
 
-      {/* ÖZET KARTLARI */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Toplam Odak</Text>
-          <Text style={styles.cardValue}>{formatTotalTime(totalFocusTime)}</Text>
+      {/* --- BÖLÜM 1: ÖZET KARTLAR --- */}
+      <View style={styles.cardsRow}>
+        <View style={[styles.card, { backgroundColor: '#e3f2fd' }]}>
+          <Text style={styles.cardLabel}>Bugün</Text>
+          <Text style={styles.cardValue}>{formatTime(summary.totalToday)}</Text>
         </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Toplam Seans</Text>
-          <Text style={styles.cardValue}>{history.length}</Text>
+        
+        <View style={[styles.card, { backgroundColor: '#e8f5e9' }]}>
+          <Text style={styles.cardLabel}>Toplam</Text>
+          <Text style={styles.cardValue}>{formatTime(summary.totalAllTime)}</Text>
+        </View>
+        
+        <View style={[styles.card, { backgroundColor: '#ffebee' }]}>
+          <Text style={styles.cardLabel}>Dikkat Dağ.</Text>
+          <Text style={[styles.cardValue, { color: '#c62828' }]}>{summary.totalDistractions || 0}</Text>
         </View>
       </View>
 
-      {/* PASTA GRAFİK */}
-      <Text style={styles.sectionTitle}>Kategori Dağılımı (Dakika)</Text>
-      {chartData.length > 0 ? (
-        <PieChart
-          data={chartData}
+      {/* --- BÖLÜM 2: BAR CHART (SON 7 GÜN) --- */}
+      <Text style={styles.sectionTitle}>Son 7 Günlük Performans</Text>
+      <View style={styles.chartContainer}>
+        <BarChart
+          data={barData}
           width={screenWidth - 40}
           height={220}
+          yAxisLabel=""
+          yAxisSuffix=" dk"
           chartConfig={{
-            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            backgroundColor: "#fff",
+            backgroundGradientFrom: "#fff",
+            backgroundGradientTo: "#fff",
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
           }}
-          accessor={"population"}
-          backgroundColor={"transparent"}
-          paddingLeft={"15"}
-          absolute // Değerleri grafik üzerinde gösterir
+          style={{ borderRadius: 16 }}
         />
+      </View>
+
+      {/* --- BÖLÜM 3: PIE CHART (KATEGORİLER) --- */}
+      <Text style={styles.sectionTitle}>Kategori Dağılımı</Text>
+      {pieData.length > 0 ? (
+        <View style={styles.chartContainer}>
+          <PieChart
+            data={pieData}
+            width={screenWidth - 40}
+            height={220}
+            chartConfig={{
+              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            }}
+            accessor={"population"}
+            backgroundColor={"transparent"}
+            paddingLeft={"15"}
+            absolute
+          />
+        </View>
       ) : (
-        <Text style={styles.noDataText}>Henüz veri yok. Biraz odaklanın!</Text>
+        <Text style={styles.noDataText}>Henüz veri yok.</Text>
       )}
 
-      {/* SON SEANSLAR LİSTESİ */}
-      <Text style={styles.sectionTitle}>Son Aktiviteler</Text>
-      {history.map((item, index) => (
-        <View key={index} style={styles.historyItem}>
-          <View style={styles.historyLeft}>
-            <Text style={styles.historyCategory}>{item.category}</Text>
-            <Text style={styles.historyDate}>{item.date}</Text>
-          </View>
-          <Text style={styles.historyDuration}>{Math.floor(item.duration / 60)} dk</Text>
-        </View>
-      ))}
-      
-      <View style={{ height: 50 }} /> 
+      <View style={{ height: 50 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 20 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 20 },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', marginBottom: 20, color: '#2c3e50' },
   
-  summaryContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  card: { backgroundColor: '#fff', width: '48%', padding: 20, borderRadius: 15, elevation: 3, alignItems: 'center' },
-  cardTitle: { fontSize: 14, color: '#888', marginBottom: 5 },
-  cardValue: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  // Kart Stilleri
+  cardsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  card: { 
+    width: '31%', 
+    padding: 15, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4
+  },
+  cardLabel: { fontSize: 12, color: '#555', marginBottom: 5, fontWeight: '600' },
+  cardValue: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 15, color: '#444' },
-  noDataText: { textAlign: 'center', color: '#999', marginVertical: 20, fontStyle: 'italic' },
-
-  historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 10, marginBottom: 10 },
-  historyLeft: { flexDirection: 'column' },
-  historyCategory: { fontSize: 16, fontWeight: '600', color: '#333' },
-  historyDate: { fontSize: 12, color: '#999' },
-  historyDuration: { fontSize: 16, fontWeight: 'bold', color: '#27ae60' }
+  // Başlıklar
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 15, color: '#34495e' },
+  
+  // Grafik Kutuları
+  chartContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    alignItems: 'center'
+  },
+  
+  noDataText: { textAlign: 'center', color: '#999', marginVertical: 20, fontStyle: 'italic' }
 });
