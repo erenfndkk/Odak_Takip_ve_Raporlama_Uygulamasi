@@ -116,21 +116,21 @@ export default function HomeScreen() {
             style={styles.picker}
             dropdownIconColor={isSessionStarted ? "#999" : "#000"}
           >
-            <Picker.Item label="📚 Ders Çalışma" value="Ders" />
-            <Picker.Item label="💻 Kodlama" value="Kodlama" />
-            <Picker.Item label="📖 Kitap Okuma" value="Kitap" />
-            <Picker.Item label="🚀 Proje" value="Proje" />
-            <Picker.Item label="🧘 Meditasyon" value="Meditasyon" />
+            <Picker.Item label="Ders Çalışma" value="Ders" />
+            <Picker.Item label="Kodlama" value="Kodlama" />
+            <Picker.Item label="Kitap Okuma" value="Kitap" />
+            <Picker.Item label="Proje" value="Proje" />
+            <Picker.Item label="Meditasyon" value="Meditasyon" />
           </Picker>
         </View>
-        {isSessionStarted && <Text style={styles.infoText}>⚠️ Seans bitmeden kategori değişemez</Text>}
+        {isSessionStarted && <Text style={styles.infoText}>Seans bitmeden kategori değişemez</Text>}
       </View>
 
       {/* SAYAÇ */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerText}>{formatTime(seconds)}</Text>
         {distractionCount > 0 && (
-            <Text style={styles.distractionText}>⚠️ {distractionCount} Kez Dikkat Dağıldı!</Text>
+            <Text style={styles.distractionText}>{distractionCount} Kez Dikkat Dağıldı!</Text>
         )}
       </View>
 

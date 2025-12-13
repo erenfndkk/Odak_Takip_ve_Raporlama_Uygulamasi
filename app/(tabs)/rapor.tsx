@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BarChart, PieChart } from 'react-native-chart-kit'; // BarChart eklendi
+import { BarChart, PieChart } from 'react-native-chart-kit';
 import { getCategoryStats, getLast7DaysStats, getSummaryStats } from '../../database/db';
 
 const screenWidth = Dimensions.get('window').width;
@@ -30,7 +30,7 @@ export default function ReportScreen() {
     const stats: any = getSummaryStats();
     setSummary(stats);
 
-    // 2. PASTA GRAFİK (PIE CHART) VERİSİ
+    // 2. pasta grafik için
     const catStats: any[] = getCategoryStats();
     const grandTotal = catStats.reduce((sum, item) => sum + item.totalDuration, 0);
     
@@ -46,17 +46,17 @@ export default function ReportScreen() {
     });
     setPieData(formattedPieData);
 
-    // 3. ÇUBUK GRAFİK (BAR CHART) VERİSİ - Son 7 Gün
+    // 3. çubuk grafik için
     const rawHistory: any[] = getLast7DaysStats();
     prepareBarChartData(rawHistory);
   };
 
-  // Bar Chart için veriyi hazırlama (Boş günleri 0 ile doldurma mantığı)
+  // Bar Chart için veriyi hazırlama 
   const prepareBarChartData = (rawHistory: any[]) => {
     const labels = [];
     const data = [];
     
-    // Bugünden geriye 7 gün say
+    // Bugünden geriye 7 gün sayma
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -78,7 +78,6 @@ export default function ReportScreen() {
     });
   };
 
-  // Saniyeyi saat:dk formatına çevirir
   const formatTime = (seconds: number) => {
     if (!seconds) return "0dk";
     const hrs = Math.floor(seconds / 3600);
@@ -93,17 +92,17 @@ export default function ReportScreen() {
       {/* --- BÖLÜM 1: ÖZET KARTLAR --- */}
       <View style={styles.cardsRow}>
         <View style={[styles.card, { backgroundColor: '#e3f2fd' }]}>
-          <Text style={styles.cardLabel}>Bugün</Text>
+          <Text style={styles.cardLabel}>Bugün Toplam Odaklanma Süresi:</Text>
           <Text style={styles.cardValue}>{formatTime(summary.totalToday)}</Text>
         </View>
         
         <View style={[styles.card, { backgroundColor: '#e8f5e9' }]}>
-          <Text style={styles.cardLabel}>Toplam</Text>
+          <Text style={styles.cardLabel}>Tüm Zam. Toplam Odak Süresi:</Text>
           <Text style={styles.cardValue}>{formatTime(summary.totalAllTime)}</Text>
         </View>
         
         <View style={[styles.card, { backgroundColor: '#ffebee' }]}>
-          <Text style={styles.cardLabel}>Dikkat Dağ.</Text>
+          <Text style={styles.cardLabel}>Dikkat Dağınıklığı Sayısı:</Text>
           <Text style={[styles.cardValue, { color: '#c62828' }]}>{summary.totalDistractions || 0}</Text>
         </View>
       </View>
