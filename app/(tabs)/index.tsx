@@ -4,7 +4,7 @@ import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react
 import { addSession } from '../../database/db';
 
 export default function HomeScreen() {
-  const DEFAULT_TIME = 25 * 60; // Varsayılan süre (25 dk)
+  const DEFAULT_TIME = 25 * 60; // Varsayılan süre
 
   const [seconds, setSeconds] = useState(DEFAULT_TIME); 
   const [totalDuration, setTotalDuration] = useState(DEFAULT_TIME);
@@ -17,7 +17,7 @@ export default function HomeScreen() {
   
   const appState = useRef(AppState.currentState);
 
-  // 1. DİKKAT DAĞINIKLIĞI TAKİBİ
+  // 1. dikakt dağınıklığı takibi
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appState.current.match(/active/) && nextAppState === 'background') {
@@ -31,7 +31,7 @@ export default function HomeScreen() {
     return () => { subscription.remove(); };
   }, [isActive]);
 
-  // 2. SAYAÇ MANTIĞI
+  // 2. sayaç mantığı
   useEffect(() => {
     let interval: any = null;
 
@@ -55,7 +55,7 @@ export default function HomeScreen() {
             { 
                 text: "Tamam", 
                 onPress: () => {
-                    // SEANS BİTİNCE YAPILACAKLAR:
+                    // seans bitince sıfırlama:
                     setDistractionCount(0);       // 1. Dikkat sayacını sıfırla
                     setSeconds(DEFAULT_TIME);     // 2. Sayacı tekrar 25 dk yap
                     setTotalDuration(DEFAULT_TIME); // 3. Hafızayı 25 dk yap 
@@ -104,7 +104,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Odaklanma Modu</Text>
       
-      {/* KATEGORİ SEÇİMİ */}
+      {/* kategori seçimi */}
       <View style={styles.pickerContainer}>
         <Text style={styles.label}>Kategori Seçiniz:</Text>
         
@@ -126,7 +126,7 @@ export default function HomeScreen() {
         {isSessionStarted && <Text style={styles.infoText}>Seans bitmeden kategori değişemez</Text>}
       </View>
 
-      {/* SAYAÇ */}
+      {/* sayaç */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerText}>{formatTime(seconds)}</Text>
         {distractionCount > 0 && (
@@ -134,7 +134,7 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* BUTONLAR */}
+      {/* butonlar */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={[styles.button, isActive ? styles.stopButton : styles.startButton]} 
@@ -147,8 +147,9 @@ export default function HomeScreen() {
           <Text style={styles.buttonText}>Sıfırla</Text>
         </TouchableOpacity>
       </View>
-
-      {/* HIZLI SÜRE AYARI */}
+      
+      
+      {/* süre ayarlama */}
       <View style={[styles.quickAddContainer, { opacity: isSessionStarted ? 0.3 : 1 }]}>
         <TouchableOpacity 
           onPress={() => changeTime(60)} 
