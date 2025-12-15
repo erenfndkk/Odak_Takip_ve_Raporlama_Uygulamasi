@@ -52,7 +52,7 @@ Telefonunuzda Expo Go uygulaması (App Store / Play Store'dan indirin)
 
 Adım 1: Projeyi Klonlayın
 ```bash
-git clone [https://github.com/KULLANICI_ADIN/OdakTakip.git](https://github.com/KULLANICI_ADIN/OdakTakip.git)
+git clone [https://github.com/erenfndkk/Odak_Takip_ve_Raporlama_Uygulamasi.git](https://github.com/erenfndkk/Odak_Takip_ve_Raporlama_Uygulamasi.git)
 cd OdakTakip
 
 Adım 2: Bağımlılıkları Yükleyin
@@ -67,6 +67,7 @@ Adım 4: Telefonunuzda Çalıştırın
 Terminalde çıkan QR Kodu, telefonunuzdaki Expo Go uygulaması ile okutun.
 •	Android: Expo Go uygulamasından "Scan QR Code" diyerek.
 •	iOS: Standart kamera uygulamasını açıp QR kodu okutarak.
+
 
 
 
