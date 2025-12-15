@@ -6,8 +6,8 @@ Kullanıcıların odaklanma seanslarını takip eder, uygulama dışına çıkı
 
 📱 Ekran Görüntüleri
 
-<img src="./assets/mobil_ana_sayfa.png" width="200" />
-<img src="./assets/ mobil_rapor_sayfası.png" width="200" />
+<img src="./assets/mobil_ana_sayfa.jpeg" width="200" />
+<img src="./assets/ mobil_rapor_sayfası.jpeg" width="200" />
 
 ✨ Özellikler
 
@@ -67,4 +67,5 @@ Adım 4: Telefonunuzda Çalıştırın
 Terminalde çıkan QR Kodu, telefonunuzdaki Expo Go uygulaması ile okutun.
 •	Android: Expo Go uygulamasından "Scan QR Code" diyerek.
 •	iOS: Standart kamera uygulamasını açıp QR kodu okutarak.
+
 
